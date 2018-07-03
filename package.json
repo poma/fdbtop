@@ -1,0 +1,15 @@
+{
+  "name": "fdbtop",
+  "version": "0.1.0",
+  "description": "Display and update sorted information about FoundationDB processes",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Poma",
+  "license": "MIT",
+  "dependencies": {
+    "easy-table": "^1.1.1",
+    "lodash": "^4.17.10"
+  }
+}
