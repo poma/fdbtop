@@ -1,6 +1,6 @@
 {
   "name": "fdbtop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Display and update sorted information about FoundationDB processes",
   "main": "index.js",
   "scripts": {
@@ -9,7 +9,10 @@
   "author": "Poma",
   "license": "MIT",
   "dependencies": {
+    "command-line-args": "^5.0.2",
+    "command-line-usage": "^5.0.5",
     "easy-table": "^1.1.1",
-    "lodash": "^4.17.10"
+    "lodash": "^4.17.10",
+    "terminal-kit": "^1.17.11"
   }
 }
