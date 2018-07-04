@@ -10,8 +10,16 @@ const termKit = require('terminal-kit');
 const term = termKit.terminal;
 
 let command = 'fdbcli --exec "status json" --timeout=15';
-const sorts = ['ip', 'port', 'cpu%', 'mem%', 'iops', 'net', 'class', 'roles'];
-const descending = ['cpu%', 'mem%', 'iops', 'net'];
+const sorts = [
+    {sort: ['ip', 'port'], order: 'asc',  numeric: false, group: true},
+    {sort: 'port',         order: 'asc',  numeric: false, group: false},
+    {sort: 'cpu%',         order: 'desc', numeric: true,  group: false},
+    {sort: 'mem%',         order: 'desc', numeric: true,  group: false},
+    {sort: 'iops',         order: 'desc', numeric: true,  group: false},
+    {sort: 'net',          order: 'desc', numeric: true,  group: false},
+    {sort: 'class',        order: 'asc',  numeric: false, group: false},
+    {sort: 'roles',        order: 'asc',  numeric: false, group: false}
+];
 let sortIndex = 0;
 
 const optionDefinitions = [
@@ -28,6 +36,11 @@ const optionDefinitions = [
         defaultValue: 1,
         typeLabel: '<sec>',
         description: 'Refresh interval in seconds' 
+    },
+    {
+        name: 'showStatelessIops',
+        type: Boolean,
+        description: 'Show disk usage for all roles (otherwise shown only for storage and log)',
     },
 ];
 const help = [
@@ -61,7 +74,7 @@ const help = [
 const options = commandLineArgs(optionDefinitions, { stopAtFirstUnknown: true });
 
 function getProcessData(status) {
-    return _(status.cluster.processes).values().map(x => ({
+    let data = _(status.cluster.processes).values().map(x => ({
         'ip': x.address.split(':')[0],
         'port': x.address.split(':')[1],
         'cpu%': x.cpu ? Math.round(x.cpu.usage_cores * 100) : '???',
@@ -70,7 +83,11 @@ function getProcessData(status) {
         'net': x.network ? Math.round(x.network.megabits_sent.hz + x.network.megabits_received.hz) : '???',
         'class': x.class_type,
         'roles': x.roles.map(z => z.role).sort().join(),
-    }));
+    })).commit();
+    if (!options.showStatelessIops) {
+        data.filter(x => !x.roles.includes('log') && !x.roles.includes('storage')).each(x => x.iops = '-');
+    }
+    return data;
 }
 
 function formatTable(data, groupMachines = true) {
@@ -88,7 +105,7 @@ function formatTable(data, groupMachines = true) {
                     lastIp = value;
                 }
             }
-            if (key === sorts[sortIndex]) {
+            if (key === sorts[sortIndex].sort) {
                 key = `<${key}>`;
             }
             t.cell(key, ' ' + value + ' ');
@@ -102,15 +119,18 @@ function processData(json) {
     let status = JSON.parse(json);
     let data = getProcessData(status);
     let sort = sorts[sortIndex];
-    let group = sort === 'ip';
-    if (sort === 'ip') {
-        sort = ['ip', 'port'];
+    let val;
+    if (sort.numeric) {
+        // non digits go last
+        val = x => (_.isInteger(x[sort.sort]) ? x[sort.sort] : 0);
+    } else if (_.isString(sort.sort)) {
+        // empty strings go last
+        val = x => x[sort.sort] === '' ? '\uffff' : x[sort.sort];
+    } else {
+        val = sort.sort;
     }
-    data = data.sortBy(sort);
-    if (descending.includes(sort)) {
-        data = data.reverse();
-    }
-    return formatTable(data, group);
+    data = data.orderBy(val, sort.order);
+    return formatTable(data, sort.group);
 }
 
 function processInput(key, matches, data) {
@@ -133,24 +153,23 @@ function processInput(key, matches, data) {
 
 function crop(buffer) {
     let lines = [];
+    let padding = ' '.repeat(term.width);
     for(let line of buffer.split('\n')) {
-        lines.push(termKit.truncateString(line, term.width));
+        lines.push(termKit.truncateString(line + padding, term.width));
         if (lines.length >= term.height) {
             break;
         }
-    }
-    while (lines.length < term.height) {
-        lines.push('');
     }
     return lines.join('\n');
 }
 
 async function loop() {
     try {
-        const {stdout, stderr} = await exec(command);
+        const {stdout, stderr} = await exec(command, {maxBuffer: 1024 * 1024});
         const output = crop(processData(stdout));
         term.moveTo(1, 1);
         term(output);
+        term.eraseDisplayBelow();
     } catch (err) {
         term.clear();
         term(err);
@@ -174,6 +193,7 @@ if (process.stdin.isTTY) {
     term.on('key', processInput);
     term.fullscreen();
     term.hideCursor();
+    term.windowTitle('fdbtop');
     process.on('exit', x => { term.fullscreen(false); term.hideCursor(false); term.styleReset(); });
     loop();
 } else {
