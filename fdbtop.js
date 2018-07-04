@@ -62,8 +62,8 @@ function getProcessData(status) {
     return _(status.cluster.processes).values().map(x => ({
         'ip': x.address.split(':')[0],
         'port': x.address.split(':')[1],
-        'cpu%': Math.round(x.cpu.usage_cores * 100) / 10,
-        'mem%': Math.round(x.memory.used_bytes / x.memory.limit_bytes * 1000) / 10,
+        'cpu%': Math.round(x.cpu.usage_cores * 100),
+        'mem%': Math.round(x.memory.used_bytes / x.memory.limit_bytes * 100),
         'iops': Math.round((x.disk.reads.hz + x.disk.writes.hz) / 1000),
         'net': Math.round(x.network.megabits_sent.hz + x.network.megabits_received.hz),
         'class': x.class_type,
@@ -146,7 +146,7 @@ async function loop() {
         term.clear();
         term(err);
         term(err.stdout);
-        term(err.stderr);
+        //term(err.stderr);
     }
 }
 
@@ -165,7 +165,7 @@ if (process.stdin.isTTY) {
     term.fullscreen();
     term.hideCursor();
     process.on('exit', x => { term.fullscreen(false); term.hideCursor(false); term.styleReset(); });
-    setInterval(loop, options.interval);
+    setInterval(loop, 1000 * options.interval);
     loop();
 } else {
     const inputChunks = [];

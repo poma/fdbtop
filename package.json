@@ -2,7 +2,7 @@
   "name": "fdbtop",
   "version": "0.2.0",
   "description": "Display and update sorted information about FoundationDB processes",
-  "main": "index.js",
+  "main": "fdbtop.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
