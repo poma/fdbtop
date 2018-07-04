@@ -9,8 +9,9 @@ const commandLineUsage = require('command-line-usage');
 const termKit = require('terminal-kit');
 const term = termKit.terminal;
 
-let command = 'fdbcli --exec "status json"';
+let command = 'fdbcli --exec "status json" --timeout=15';
 const sorts = ['ip', 'port', 'cpu%', 'mem%', 'iops', 'net', 'class', 'roles'];
+const descending = ['cpu%', 'mem%', 'iops', 'net'];
 let sortIndex = 0;
 
 const optionDefinitions = [
@@ -41,6 +42,7 @@ const help = [
     {
         header: 'Examples',
         content: 
+            '{bold fdbtop}\n' +
             '{bold fdbtop -i 10 -- -C fdb.cluster --tls_certificate_file cert}\n' +
             '{bold ssh foo "fdbcli --exec \'status json\'" | fdbtop}'
     },
@@ -62,10 +64,10 @@ function getProcessData(status) {
     return _(status.cluster.processes).values().map(x => ({
         'ip': x.address.split(':')[0],
         'port': x.address.split(':')[1],
-        'cpu%': Math.round(x.cpu.usage_cores * 100),
-        'mem%': Math.round(x.memory.used_bytes / x.memory.limit_bytes * 100),
-        'iops': Math.round((x.disk.reads.hz + x.disk.writes.hz) / 1000),
-        'net': Math.round(x.network.megabits_sent.hz + x.network.megabits_received.hz),
+        'cpu%': x.cpu ? Math.round(x.cpu.usage_cores * 100) : '???',
+        'mem%': x.memory && x.memory.limit_bytes ? Math.round(x.memory.used_bytes / x.memory.limit_bytes * 100) : '???',
+        'iops': x.disk ? Math.round(x.disk.reads.hz + x.disk.writes.hz) : '???',
+        'net': x.network ? Math.round(x.network.megabits_sent.hz + x.network.megabits_received.hz) : '???',
         'class': x.class_type,
         'roles': x.roles.map(z => z.role).sort().join(),
     }));
@@ -105,6 +107,9 @@ function processData(json) {
         sort = ['ip', 'port'];
     }
     data = data.sortBy(sort);
+    if (descending.includes(sort)) {
+        data = data.reverse();
+    }
     return formatTable(data, group);
 }
 
@@ -134,20 +139,25 @@ function crop(buffer) {
             break;
         }
     }
+    while (lines.length < term.height) {
+        lines.push('');
+    }
     return lines.join('\n');
 }
 
 async function loop() {
     try {
         const {stdout, stderr} = await exec(command);
-        term.clear();
-        term(crop(processData(stdout)));
+        const output = crop(processData(stdout));
+        term.moveTo(1, 1);
+        term(output);
     } catch (err) {
         term.clear();
         term(err);
         term(err.stdout);
-        //term(err.stderr);
+        // term(err.stderr); // already included in stdout?
     }
+    setTimeout(loop, 1000 * options.interval);
 }
 
 if (options.help || options._unknown && options._unknown[0] !== '--') {
@@ -165,7 +175,6 @@ if (process.stdin.isTTY) {
     term.fullscreen();
     term.hideCursor();
     process.on('exit', x => { term.fullscreen(false); term.hideCursor(false); term.styleReset(); });
-    setInterval(loop, 1000 * options.interval);
     loop();
 } else {
     const inputChunks = [];
