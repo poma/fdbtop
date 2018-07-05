@@ -1,14 +1,17 @@
 {
   "name": "fdbtop",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Display and update sorted information about FoundationDB processes",
+  "keywords": "FoundationDB",
+  "homepage": "https://github.com/poma/fdbtop",
+  "author": "Poma",
+  "license": "MIT",
+  "repository": "poma/fdbtop",
   "main": "fdbtop.js",
   "bin": "fdbtop.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Poma",
-  "license": "MIT",
   "dependencies": {
     "command-line-args": "^5.0.2",
     "command-line-usage": "^5.0.5",
