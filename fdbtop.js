@@ -145,7 +145,7 @@ function processInput(key, matches, data) {
             loop(); // instant refresh
             break;
         case '<':
-            sortIndex = (sortIndex - 1) % sorts.length;
+            sortIndex = (sortIndex - 1 + sorts.length) % sorts.length;
             loop(); // instant refresh
             break;
     }
